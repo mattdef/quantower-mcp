@@ -1,0 +1,30 @@
+[
+  {
+    "orderId": "ORD-0900",
+    "connectionId": "SIM-1",
+    "accountId": "ACC-DEMO-USD",
+    "symbolId": "EUR/USD",
+    "side": "buy",
+    "orderType": "limit",
+    "status": "filled",
+    "quantity": 0.5,
+    "filledQuantity": 0.5,
+    "price": 1.08,
+    "timeInForce": "gtc",
+    "createdAtUtc": "2026-10-13T17:45:00.000Z",
+    "comment": "entrée position POS-1"
+  },
+  {
+    "orderId": "ORD-0901",
+    "connectionId": "SIM-1",
+    "accountId": "ACC-DEMO-USD",
+    "symbolId": "AAPL",
+    "side": "sell",
+    "orderType": "stop",
+    "status": "cancelled",
+    "quantity": 10,
+    "filledQuantity": 0,
+    "triggerPrice": 225.0,
+    "createdAtUtc": "2026-10-13T16:10:00.000Z"
+  }
+]

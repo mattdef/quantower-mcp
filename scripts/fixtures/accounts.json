@@ -1,0 +1,12 @@
+[
+  {
+    "accountId": "ACC-DEMO-USD",
+    "connectionId": "SIM-1",
+    "name": "Demo USD",
+    "balance": 100000,
+    "equity": 100250,
+    "currency": "USD",
+    "netPnl": 250,
+    "buyingPower": 500000
+  }
+]

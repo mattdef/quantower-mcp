@@ -1,0 +1,8 @@
+[
+  {
+    "connectionId": "SIM-1",
+    "name": "Quantower Trading Simulator",
+    "status": "connected",
+    "type": "simulator"
+  }
+]

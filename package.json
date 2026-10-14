@@ -1,0 +1,40 @@
+{
+  "name": "quantower-mcp-server",
+  "version": "0.1.0",
+  "description": "Serveur MCP local pour lire et piloter Quantower via le bridge C# QuantowerMcpBridge (HTTP JSON loopback).",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "dist/server.js",
+  "bin": {
+    "quantower-mcp-server": "dist/server.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/server.ts",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "fake-bridge": "node scripts/fake-bridge.mjs",
+    "smoke-bridge": "node scripts/smoke-bridge.mjs",
+    "inspector": "npx @modelcontextprotocol/inspector node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": ">=1.12.0 <2",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.4"
+  }
+}

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Bridge Quantower MCP.
+
+    Compilation isolée (sans Quantower installé) :
+      dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj
+
+    Compilation avec le vrai SDK Quantower (active le symbole QUANTOWER_SDK et
+    l'implémentation réelle QuantowerCoreGateway) :
+      dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj -p:QuantowerSdkDir="C:\Program Files\Quantower\Trading Platform"
+
+    Si la version installée de Quantower cible .NET Framework, préciser aussi :
+      -p:QuantowerTargetFramework=net48
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework Condition="'$(QuantowerTargetFramework)' != ''">$(QuantowerTargetFramework)</TargetFramework>
+    <TargetFramework Condition="'$(QuantowerTargetFramework)' == ''">net8.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>QuantowerMcpBridge</RootNamespace>
+    <AssemblyName>QuantowerMcpBridge</AssemblyName>
+    <Version>0.1.0</Version>
+    <Product>Quantower MCP Bridge</Product>
+    <Description>Plugin Quantower exposant une API HTTP JSON locale (loopback) pour le serveur MCP quantower-mcp-server.</Description>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(QuantowerSdkDir)' != ''">
+    <DefineConstants>$(DefineConstants);QUANTOWER_SDK</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(QuantowerSdkDir)' != ''">
+    <Reference Include="TradingPlatform.BusinessLayer">
+      <HintPath>$(QuantowerSdkDir)\TradingPlatform.BusinessLayer.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+    <!-- System.Text.Json n'est pas inclus dans .NET Framework : disponible via NuGet. -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+</Project>

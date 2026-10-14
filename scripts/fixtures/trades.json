@@ -1,0 +1,26 @@
+[
+  {
+    "tradeId": "TRD-5001",
+    "connectionId": "SIM-1",
+    "accountId": "ACC-DEMO-USD",
+    "symbolId": "EUR/USD",
+    "side": "buy",
+    "quantity": 0.5,
+    "price": 1.08,
+    "timestampUtc": "2026-10-13T17:45:02.000Z",
+    "fee": 0.5,
+    "orderId": "ORD-0900"
+  },
+  {
+    "tradeId": "TRD-5002",
+    "connectionId": "SIM-1",
+    "accountId": "ACC-DEMO-USD",
+    "symbolId": "AAPL",
+    "side": "buy",
+    "quantity": 5,
+    "price": 229.5,
+    "timestampUtc": "2026-10-13T16:05:11.000Z",
+    "fee": 0.25,
+    "orderId": "ORD-0899"
+  }
+]

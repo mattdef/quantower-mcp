@@ -1,0 +1,15 @@
+[
+  {
+    "positionId": "POS-1",
+    "connectionId": "SIM-1",
+    "accountId": "ACC-DEMO-USD",
+    "symbolId": "EUR/USD",
+    "side": "buy",
+    "quantity": 0.5,
+    "openPrice": 1.08,
+    "currentPrice": 1.0843,
+    "netPnl": 215,
+    "grossPnl": 215,
+    "openTimeUtc": "2026-10-13T18:00:00.000Z"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "symbolId": "EUR/USD",
+    "connectionId": "SIM-1",
+    "name": "EUR/USD",
+    "description": "Euro vs US Dollar",
+    "tickSize": 0.00001,
+    "lotStep": 0.01,
+    "minLot": 0.01,
+    "maxLot": 100,
+    "baseAsset": "EUR",
+    "quoteAsset": "USD"
+  },
+  {
+    "symbolId": "BTC/USD",
+    "connectionId": "SIM-1",
+    "name": "BTC/USD",
+    "description": "Bitcoin vs US Dollar",
+    "tickSize": 0.5,
+    "lotStep": 0.001,
+    "minLot": 0.001,
+    "maxLot": 10,
+    "baseAsset": "BTC",
+    "quoteAsset": "USD"
+  },
+  {
+    "symbolId": "AAPL",
+    "connectionId": "SIM-1",
+    "name": "AAPL",
+    "description": "Apple Inc.",
+    "tickSize": 0.01,
+    "lotStep": 1,
+    "minLot": 1,
+    "maxLot": 1000,
+    "baseAsset": "AAPL",
+    "quoteAsset": "USD"
+  }
+]

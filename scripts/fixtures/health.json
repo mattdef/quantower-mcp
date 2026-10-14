@@ -1,0 +1,14 @@
+{
+  "status": "ok",
+  "bridgeVersion": "0.1.0",
+  "platformVersion": "1.142.0 (fake)",
+  "startedAtUtc": "2026-10-13T19:00:00.000Z",
+  "uptimeSeconds": 3600,
+  "tradingEnabled": true,
+  "caps": {
+    "maxOrderQuantity": 50,
+    "maxNotional": 50000,
+    "denyMarketOrders": false
+  },
+  "connectionCount": 1
+}

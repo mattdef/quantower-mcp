@@ -1,0 +1,17 @@
+[
+  {
+    "orderId": "ORD-1001",
+    "connectionId": "SIM-1",
+    "accountId": "ACC-DEMO-USD",
+    "symbolId": "EUR/USD",
+    "side": "buy",
+    "orderType": "limit",
+    "status": "working",
+    "quantity": 0.25,
+    "filledQuantity": 0,
+    "price": 1.078,
+    "timeInForce": "gtc",
+    "createdAtUtc": "2026-10-13T19:30:00.000Z",
+    "comment": "fake bridge fixture"
+  }
+]

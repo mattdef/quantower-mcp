@@ -1,0 +1,41 @@
+{
+  "EUR/USD": {
+    "symbolId": "EUR/USD",
+    "connectionId": "SIM-1",
+    "bid": 1.08425,
+    "ask": 1.08435,
+    "last": 1.0843,
+    "volume": 125000,
+    "open": 1.0831,
+    "high": 1.0852,
+    "low": 1.0827,
+    "previousClose": 1.083,
+    "timestampUtc": "2026-10-13T20:00:00.000Z"
+  },
+  "BTC/USD": {
+    "symbolId": "BTC/USD",
+    "connectionId": "SIM-1",
+    "bid": 68450.5,
+    "ask": 68460.0,
+    "last": 68455.0,
+    "volume": 1250.75,
+    "open": 67800.0,
+    "high": 69100.0,
+    "low": 67450.0,
+    "previousClose": 67700.0,
+    "timestampUtc": "2026-10-13T20:00:00.000Z"
+  },
+  "AAPL": {
+    "symbolId": "AAPL",
+    "connectionId": "SIM-1",
+    "bid": 231.15,
+    "ask": 231.2,
+    "last": 231.18,
+    "volume": 45230,
+    "open": 229.5,
+    "high": 232.4,
+    "low": 228.9,
+    "previousClose": 229.2,
+    "timestampUtc": "2026-10-13T20:00:00.000Z"
+  }
+}
