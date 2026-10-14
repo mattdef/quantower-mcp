@@ -1,0 +1,27 @@
+# Recette Codex — serveur MCP quantower.
+# À fusionner dans ~/.codex/config.toml (créer le fichier s'il n'existe pas).
+# Chemin principal : clone local + build (README §Installation, Chemin A).
+# CLI équivalent : codex mcp add quantower --env QUANTOWER_BRIDGE_URL=http://127.0.0.1:8765 -- node C:\Users\<vous>\Documents\Projects\quantower-mcp\dist\server.js
+#
+# Aucun secret ici : le serveur relit tout seul le token écrit par le bridge
+# (%LOCALAPPDATA%\quantower-mcp\bridge-token). Voir le README (Dépannage).
+
+[mcp_servers.quantower]
+command = "node"
+args = ["C:\\Users\\<vous>\\Documents\\Projects\\quantower-mcp\\dist\\server.js"]
+enabled = true
+startup_timeout_sec = 20   # recette npx : marge au 1er lancement (clone + compile)
+tool_timeout_sec = 30      # certaines lectures (historique) peuvent être lentes
+
+# Variante sans clone (npm ≤ 11 ; npm ≥ 12 : opt-in requis — README Dépannage « EALLOWGIT ») :
+# command = "npx"
+# args = ["-y", "github:mattdef/quantower-mcp"]
+
+# Hériter d'une variable d'environnement hôte sans l'écrire dans ce fichier
+# (à réserver au token ponctuel ; le fichier de token par défaut suffit) :
+# env_vars = ["QUANTOWER_BRIDGE_TOKEN"]
+
+[mcp_servers.quantower.env]
+QUANTOWER_BRIDGE_URL = "http://127.0.0.1:8765"
+QUANTOWER_TRADING_ENABLED = "false"
+QUANTOWER_LOG_LEVEL = "info"

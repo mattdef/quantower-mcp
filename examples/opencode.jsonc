@@ -1,0 +1,29 @@
+// Recette OpenCode — serveur MCP quantower.
+//
+// Emplacement : opencode.json / opencode.jsonc à la racine d'un projet,
+// ou config globale (~/.config/opencode/opencode.json) si l'on préfère.
+// Chemin principal : clone local + build (README §Installation, Chemin A).
+// CLI équivalent : opencode mcp add quantower --env QUANTOWER_BRIDGE_URL=http://127.0.0.1:8765 --env QUANTOWER_TRADING_ENABLED=false -- node C:\Users\<vous>\Documents\Projects\quantower-mcp\dist\server.js
+// (ajoutez --global pour la config globale), puis : opencode mcp list
+//
+// Aucun secret ici : le serveur relit tout seul le token écrit par le bridge
+// (%LOCALAPPDATA%\quantower-mcp\bridge-token). Voir le README (Dépannage).
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "quantower": {
+      "type": "local",
+      "command": ["node", "C:\\Users\\<vous>\\Documents\\Projects\\quantower-mcp\\dist\\server.js"],
+      "enabled": true,
+      // Variante sans clone (npm ≤ 11 ; npm ≥ 12 : opt-in requis — README Dépannage « EALLOWGIT ») :
+      // "command": ["npx", "-y", "github:mattdef/quantower-mcp"],
+      "environment": {
+        "QUANTOWER_BRIDGE_URL": "http://127.0.0.1:8765",
+        "QUANTOWER_LOG_LEVEL": "info",
+        "QUANTOWER_TRADING_ENABLED": "false"
+      }
+      // Machine-dépendant : "environment": { "QUANTOWER_BRIDGE_URL": "{env:QUANTOWER_BRIDGE_URL}" }
+      // Désactivation temporaire : passer "enabled" à false.
+    }
+  }
+}

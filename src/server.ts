@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Bootstrap du serveur MCP Quantower (transport stdio, plan §2.1 B).
  *

@@ -14,16 +14,17 @@ IA (Claude Desktop, Cursor, Codex…) via un **bridge C# chargé dans Quantower*
 
 1. [Architecture](#architecture)
 2. [Prérequis](#prérequis)
-3. [Démarrage rapide (développement sans Quantower)](#démarrage-rapide-développement-sans-quantower)
-4. [Installation du bridge dans Quantower](#installation-du-bridge-dans-quantower)
-5. [Configuration](#configuration)
-6. [Configuration des clients MCP](#configuration-des-clients-mcp)
-7. [Sécurité et garde-fous](#sécurité-et-garde-fous)
-8. [Outils, ressources et prompts exposés](#outils-ressources-et-prompts-exposés)
-9. [Tests, scripts et inspection](#tests-scripts-et-inspection)
-10. [Dépannage](#dépannage)
-11. [Structure du dépôt](#structure-du-dépôt)
-12. [Roadmap et hors scope](#roadmap-et-hors-scope)
+3. [Installation](#installation)
+4. [Démarrage rapide (développement sans Quantower)](#démarrage-rapide-développement-sans-quantower)
+5. [Installation du bridge dans Quantower](#installation-du-bridge-dans-quantower)
+6. [Configuration](#configuration)
+7. [Configuration des clients MCP](#configuration-des-clients-mcp)
+8. [Sécurité et garde-fous](#sécurité-et-garde-fous)
+9. [Outils, ressources et prompts exposés](#outils-ressources-et-prompts-exposés)
+10. [Tests, scripts et inspection](#tests-scripts-et-inspection)
+11. [Dépannage](#dépannage)
+12. [Structure du dépôt](#structure-du-dépôt)
+13. [Roadmap et hors scope](#roadmap-et-hors-scope)
 
 ---
 
@@ -61,35 +62,80 @@ développer le serveur MCP et les tests.
 
 ---
 
-## Démarrage rapide (développement sans Quantower)
+## Installation
+
+Seul **Node.js ≥ 20** est requis pour le serveur MCP. Deux chemins selon votre usage :
+
+### Chemin A — clone local (recommandé)
 
 ```bash
-# 1. Serveur MCP
+git clone https://github.com/mattdef/quantower-mcp.git
+cd quantower-mcp
 npm install
 npm run build
-
-# 2. Bridge factice (fixtures JSON) sur le port 8765
-node scripts/fake-bridge.mjs --port 8765 --token dev-token
-
-# 3. Dans un autre terminal : smoke test du contrat HTTP
-node scripts/smoke-bridge.mjs --url http://127.0.0.1:8765 --token dev-token
+node dist/server.js
 ```
 
-Puis lancez le serveur MCP avec :
+Le clone est aussi nécessaire pour le bridge C# (`bridge/`), les scripts de développement (`scripts/`) et
+`npm run inspector`. C'est le chemin le plus stable : la recette `npx github:` (Chemin B) est bloquée par
+défaut sur npm ≥ 12 (voir [Dépannage](#dépannage)).
+
+### Chemin B — sans clone (`npx github:`)
+
+Le serveur se lance directement depuis GitHub (aucune publication npm nécessaire) :
 
 ```bash
-QUANTOWER_BRIDGE_URL=http://127.0.0.1:8765 QUANTOWER_BRIDGE_TOKEN=dev-token node dist/server.js
+npx -y github:mattdef/quantower-mcp
 ```
+
+npm clone le dépôt, compile le TypeScript puis démarre `dist/server.js` sur stdio. En pratique, c'est le
+**client MCP** qui exécute cette commande pour vous : appliquez la recette de votre client —
+[OpenCode](#opencode), [Claude Code](#claude-code), [Codex](#codex),
+[Claude Desktop](#claude-desktop-claude_desktop_configjson),
+[Cursor](#cursor-cursormcpjson-ou-config-utilisateur).
+
+> ⚠️ **npm ≥ 12** : les sources git sont refusées par défaut (`allow-git=none` → `EALLOWGIT`) et le
+> `prepare` (build) d'une source git n'est exécuté qu'après approbation explicite des scripts. Cette
+> recette nécessite donc un opt-in npm (voir [Dépannage](#dépannage)) ; sur npm ≤ 11, elle fonctionne
+> (avertissements possibles sur les 11.x récents). En cas de doute, utilisez le **Chemin A**.
+
+### Ensuite
+
+1. **Bridge** : bridge C# dans Quantower (voir [Installation du bridge](#installation-du-bridge-dans-quantower))
+   ou bridge factice pour tester sans Quantower (voir [Démarrage rapide](#démarrage-rapide-développement-sans-quantower)).
+2. **Vérification du bridge** : `node scripts/smoke-bridge.mjs --url http://127.0.0.1:8765 --token <token>` (Chemin A) — substituez `<token>` par la valeur du fichier `%LOCALAPPDATA%\quantower-mcp\bridge-token` (`smoke-bridge.mjs` ne relit pas ce fichier : il n'accepte que `--token` ou `QUANTOWER_BRIDGE_TOKEN`) ; sous PowerShell : `--token (Get-Content "$env:LOCALAPPDATA\quantower-mcp\bridge-token")`.
+3. **Client MCP** : copiez une recette depuis [Configuration des clients MCP](#configuration-des-clients-mcp).
+
+---
+
+## Démarrage rapide (développement sans Quantower)
+
+Ordre recommandé, de zéro à un client MCP branché :
+
+1. **Prérequis** : Node.js ≥ 20 (`node --version`) — puis, dans le clone local :
+   `npm install` puis `npm run build`.
+2. **Bridge** : bridge factice (fixtures JSON) sur le port 8765, à laisser tourner dans son terminal :
+   `node scripts/fake-bridge.mjs --port 8765 --token dev-token`.
+3. **Smoke test** (dans un second terminal) : `node scripts/smoke-bridge.mjs --url http://127.0.0.1:8765 --token dev-token`.
+4. **Serveur MCP** (optionnel : le client MCP le lance lui-même) — sous PowerShell (cible Windows) :
+
+   ```powershell
+   $env:QUANTOWER_BRIDGE_URL="http://127.0.0.1:8765"; $env:QUANTOWER_BRIDGE_TOKEN="dev-token"; node dist/server.js
+   ```
+
+   bash / Git Bash :
+   `QUANTOWER_BRIDGE_URL=http://127.0.0.1:8765 QUANTOWER_BRIDGE_TOKEN=dev-token node dist/server.js`.
+5. **Client MCP** : appliquez une recette de [Configuration des clients MCP](#configuration-des-clients-mcp)
+   (OpenCode, Claude Code, Codex, Claude Desktop, Cursor).
+6. **Vérification** : `opencode mcp list`, `claude mcp list` ou `codex mcp list` — le serveur `quantower`
+   doit apparaître (sinon `/mcp` dans le client). En secours, sans client : `npm run inspector`.
+
+> Le token `dev-token` ci-dessus n'est utile qu'avec le bridge factice. Avec le bridge C# réel, le serveur
+> relit tout seul `%LOCALAPPDATA%\quantower-mcp\bridge-token` : aucun token à copier dans une config.
 
 > Alternative : le bridge C# en mode stub (mêmes données, code de production côté HTTP) :
 > `dotnet run --project bridge/QuantowerMcpBridge -- --port 8765 --token dev-token`
 > (ajoutez `--trading` pour activer l'écriture — désactivée par défaut côté bridge, comme côté MCP).
-
-Pour inspecter les outils sans client MCP :
-
-```bash
-npm run inspector
-```
 
 ---
 
@@ -101,8 +147,8 @@ La procédure complète (build avec le SDK Quantower, déploiement, checklist **
 1. Compiler le bridge :
    `dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj -p:QuantowerSdkDir="C:\Program Files\Quantower\Trading Platform"`
 2. Charger le module dans Quantower (extension VS « Quantower Algo » ou dossier de modules — **à valider en Phase 0**).
-3. Vérifier que le bridge répond : `node scripts/smoke-bridge.mjs --url http://127.0.0.1:8765 --token <token>`.
-4. Reporter le token (`%LOCALAPPDATA%\quantower-mcp\bridge-token`) dans la config du serveur MCP.
+3. Vérifier que le bridge répond : `node scripts/smoke-bridge.mjs --url http://127.0.0.1:8765 --token <token>` — substituez `<token>` par la valeur du fichier `%LOCALAPPDATA%\quantower-mcp\bridge-token` (`smoke-bridge.mjs` ne relit pas ce fichier) ; sous PowerShell : `--token (Get-Content "$env:LOCALAPPDATA\quantower-mcp\bridge-token")`.
+4. Côté config MCP, rien à copier : le serveur MCP relit automatiquement `%LOCALAPPDATA%\quantower-mcp\bridge-token` (voir [Dépannage](#dépannage) en cas de `[BRIDGE_UNAUTHORIZED]`).
 
 ---
 
@@ -132,6 +178,110 @@ Variables d'environnement du serveur MCP (`src/config.ts`) :
 
 ## Configuration des clients MCP
 
+> **Aucun secret dans les configs** : le serveur relit par défaut le token écrit par le bridge
+> (`%LOCALAPPDATA%\quantower-mcp\bridge-token`). Toutes les recettes ci-dessous restent en **lecture seule**
+> (`QUANTOWER_TRADING_ENABLED=false`). Fichiers prêts à copier dans [`examples/`](examples/).
+
+> **Placeholder `<vous>`** : dans ce README comme dans les fichiers `examples/`, remplacez `<vous>` par votre
+> nom de session Windows (par exemple `mcast`) ; si un chemin contient des espaces, entourez-le de guillemets
+> doubles.
+
+Variables d'environnement les plus utilisées (tableau complet : [Configuration](#configuration)) :
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `QUANTOWER_BRIDGE_URL` | `http://127.0.0.1:8765` | URL du bridge (loopback uniquement). |
+| `QUANTOWER_BRIDGE_TOKEN_FILE` | `%LOCALAPPDATA%\quantower-mcp\bridge-token` | **Recommandé** : relu à chaque appel — aucun secret à écrire dans une config. |
+| `QUANTOWER_BRIDGE_TOKEN` | — | Token en clair, prioritaire sur le fichier. Réservé au développement : ne jamais committer. |
+| `QUANTOWER_TRADING_ENABLED` | `false` | `true` = enregistre les tools d'écriture (démo uniquement). |
+| `QUANTOWER_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` (logs sur stderr). |
+
+### OpenCode
+
+Config projet `opencode.jsonc` (ou globale `~/.config/opencode/opencode.json`). Fichier complet :
+[`examples/opencode.jsonc`](examples/opencode.jsonc).
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "quantower": {
+      "type": "local",
+      "command": ["node", "C:\\Users\\<vous>\\Documents\\Projects\\quantower-mcp\\dist\\server.js"],
+      "enabled": true,
+      "environment": {
+        "QUANTOWER_BRIDGE_URL": "http://127.0.0.1:8765",
+        "QUANTOWER_TRADING_ENABLED": "false"
+      }
+    }
+  }
+}
+```
+
+- CLI : `opencode mcp add quantower --env QUANTOWER_BRIDGE_URL=http://127.0.0.1:8765 --env QUANTOWER_TRADING_ENABLED=false -- node C:\Users\<vous>\Documents\Projects\quantower-mcp\dist\server.js`
+  (ajoutez `--global` pour la config globale), puis `opencode mcp list`.
+- Variante sans clone : `"command": ["npx", "-y", "github:mattdef/quantower-mcp"]` — sur npm ≥ 12, opt-in npm requis (voir [Dépannage](#dépannage), `EALLOWGIT`).
+- Substitution de variable machine : `"environment": { "QUANTOWER_BRIDGE_URL": "{env:QUANTOWER_BRIDGE_URL}" }`.
+- Désactivation temporaire : passer `"enabled"` à `false`.
+
+### Claude Code
+
+Claude Code stocke lui-même les serveurs MCP (pas de fichier à éditer à la main). Recette détaillée :
+[`examples/claude-code.md`](examples/claude-code.md).
+
+```bash
+claude mcp add quantower --transport stdio --scope user --env QUANTOWER_BRIDGE_URL=http://127.0.0.1:8765 --env QUANTOWER_TRADING_ENABLED=false -- node "C:\Users\<vous>\Documents\Projects\quantower-mcp\dist\server.js"
+```
+
+> À taper sur **une seule ligne** : ni PowerShell ni `cmd` ne comprennent les continuations `\`
+> (réservées à bash / Git Bash).
+
+- Scopes : `local` (défaut, projet courant), `project` (`.mcp.json` versionnable), `user` (global).
+- Équivalent `.mcp.json` de projet (`claude mcp add-json quantower '<objet>' -s project`) :
+
+```json
+{
+  "mcpServers": {
+    "quantower": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:\\Users\\<vous>\\Documents\\Projects\\quantower-mcp\\dist\\server.js"],
+      "env": {
+        "QUANTOWER_BRIDGE_URL": "http://127.0.0.1:8765",
+        "QUANTOWER_TRADING_ENABLED": "false"
+      }
+    }
+  }
+}
+```
+
+- Variante sans clone : terminer par `-- npx -y github:mattdef/quantower-mcp` — sur npm ≥ 12, opt-in npm requis (voir [Dépannage](#dépannage), `EALLOWGIT`).
+- Vérification : `claude mcp list`, `claude mcp get quantower`, ou `/mcp` dans la TUI.
+
+### Codex
+
+Extrait à fusionner dans `~/.codex/config.toml`. Fichier complet :
+[`examples/codex-config.toml`](examples/codex-config.toml).
+
+```toml
+[mcp_servers.quantower]
+command = "node"
+args = ["C:\\Users\\<vous>\\Documents\\Projects\\quantower-mcp\\dist\\server.js"]
+enabled = true
+startup_timeout_sec = 20
+tool_timeout_sec = 30
+
+[mcp_servers.quantower.env]
+QUANTOWER_BRIDGE_URL = "http://127.0.0.1:8765"
+QUANTOWER_TRADING_ENABLED = "false"
+```
+
+- CLI : `codex mcp add quantower --env QUANTOWER_BRIDGE_URL=http://127.0.0.1:8765 -- node C:\Users\<vous>\Documents\Projects\quantower-mcp\dist\server.js`,
+  puis `codex mcp list` (ou `/mcp` dans l'interface).
+- Variante sans clone : `command = "npx"`, `args = ["-y", "github:mattdef/quantower-mcp"]` — sur npm ≥ 12, opt-in npm requis (voir [Dépannage](#dépannage), `EALLOWGIT`).
+- Hériter d'une variable d'environnement hôte sans l'écrire dans le TOML : `env_vars = ["QUANTOWER_BRIDGE_TOKEN"]`
+  (dans `[mcp_servers.quantower]`). Recommandé : ne rien mettre — le fichier de token par défaut suffit.
+
 ### Claude Desktop (`claude_desktop_config.json`)
 
 ```json
@@ -142,7 +292,7 @@ Variables d'environnement du serveur MCP (`src/config.ts`) :
       "args": ["C:\\Users\\<vous>\\Documents\\Projects\\quantower-mcp\\dist\\server.js"],
       "env": {
         "QUANTOWER_BRIDGE_URL": "http://127.0.0.1:8765",
-        "QUANTOWER_BRIDGE_TOKEN": "<token du bridge>",
+        "QUANTOWER_BRIDGE_TOKEN_FILE": "C:\\Users\\<vous>\\AppData\\Local\\quantower-mcp\\bridge-token",
         "QUANTOWER_LOG_LEVEL": "info"
       }
     }
@@ -240,14 +390,21 @@ répercutée dans le bridge C#, `src/bridge-types.ts` et les fixtures.
 
 | Symptôme | Cause probable | Action |
 |---|---|---|
-| `[BRIDGE_UNAVAILABLE]` | Quantower fermé, module non chargé, mauvais port | Lancez Quantower avec le bridge, vérifiez `QUANTOWER_BRIDGE_URL` et `scripts/smoke-bridge.mjs`. |
-| `[BRIDGE_UNAUTHORIZED]` | Token absent/différent | Copiez `%LOCALAPPDATA%\quantower-mcp\bridge-token` dans `QUANTOWER_BRIDGE_TOKEN`, ou pointez `QUANTOWER_BRIDGE_TOKEN_FILE` dessus. |
+| `[BRIDGE_UNAVAILABLE]` | Quantower fermé, module non chargé, mauvais port | Lancez Quantower avec le bridge, vérifiez `QUANTOWER_BRIDGE_URL` et `scripts/smoke-bridge.mjs` (Chemin A). |
+| `[BRIDGE_UNAUTHORIZED]` | Token absent/différent | Par défaut rien à configurer : le serveur relit `%LOCALAPPDATA%\quantower-mcp\bridge-token`. Si le bridge écrit ailleurs, pointez `QUANTOWER_BRIDGE_TOKEN_FILE` dessus (préférable à `QUANTOWER_BRIDGE_TOKEN`, un secret en clair dans la config). |
 | `[NOT_FOUND]` | `connectionId`/`symbolId`/`orderId` inconnu | Utilisez `quantower_list_connections` et `quantower_search_symbols`. |
 | `[TIMEOUT]` | Historique trop volumineux | Réduisez `limit` ou augmentez `QUANTOWER_BRIDGE_TIMEOUT_MS`. |
 | `[INVALID_STATE]` | Ordre déjà annulé/terminé | Rechargez l'état avec `quantower_get_orders`. |
 | `[TRADING_DISABLED]` | Mode read_only (MCP) ou écriture désactivée côté bridge | MCP : `QUANTOWER_TRADING_ENABLED=true` puis redémarrez le serveur MCP ; bridge : `QUANTOWER_BRIDGE_TRADING_ENABLED=true` (défaut `false`) puis relancez le bridge. |
 | `[LIMIT_EXCEEDED]` | Plafond dépassé | Réduisez la taille ou ajustez les plafonds. |
 | Erreur d'accès refusé au démarrage du bridge | Réservation URL HTTP.SYS | Une réservation par préfixe : `netsh http add urlacl url=http://localhost:8765/ user=%USERNAME%`, puis idem pour `http://127.0.0.1:8765/` et `http://[::1]:8765/` (voir `bridge/README.md`). |
+| `npx` introuvable côté client (Windows) | Le client n'exécute pas `npx.cmd` | Utilisez `cmd /c npx` ou `npx.cmd` dans la recette, ou restez sur le Chemin A (clone local, sans `npx`). |
+| `npm error code EALLOWGIT` (recette `npx -y github:…` sur npm ≥ 12) | npm ≥ 12 refuse les sources git par défaut (`allow-git=none`) et n'exécute pas le `prepare` (build) d'une source git sans approbation des scripts | Chemin A (clone local) : fiable quel que soit npm. Sinon opt-in via un `.npmrc` **utilisateur** (une recette `npx` n'a pas de `package.json` de projet) : `allow-git` (`all`/`root`, pas de ciblage par dépôt) + `allow-scripts` ; la préparation d'une source git peut néanmoins rester bloquée (`EALLOWSCRIPTS`, npm/cli#9783). |
+| `npx` échoue sans message (binaire introuvable) | Politique npm `allow-scripts` : le script `prepare` (build) n'est pas exécuté, `dist/` reste vide | Chemin A : `npm install`, `npm run build`, puis `node dist/server.js` (ou `npm start`). |
+| Serveur absent de `opencode mcp list` / `claude mcp list` / `codex mcp list` | Config invalide ou non rechargée | Vérifiez la syntaxe (JSONC/JSON/TOML) puis relancez le client ; rejouez la commande de la recette à la main pour voir l'erreur. |
+| `node` introuvable ou version < 20 | Node.js absent ou trop ancien | Installez Node.js ≥ 20 (`node --version` doit répondre). |
+| Échec de spawn si le chemin contient des espaces | Chemin non quoté dans la config client | Entourez le chemin de guillemets dans la config ; alternative : recette `npx` (Chemin B — sur npm ≥ 12, opt-in npm requis, voir `EALLOWGIT`). |
+| Premier lancement lent (Codex) | Recette `npx` (Chemin B) : clone + compile le serveur au premier appel | Augmentez `startup_timeout_sec` (ex. 60) le temps du premier lancement. |
 
 ---
 
@@ -256,9 +413,11 @@ répercutée dans le bridge C#, `src/bridge-types.ts` et les fixtures.
 ```
 quantower-mcp/
 ├── bridge/QuantowerMcpBridge/   # plugin C# (Dtos/, HttpServer.cs, CoreGateway.cs, StubCoreGateway.cs, …)
+├── examples/                    # recettes de config clients (opencode.jsonc, claude-code.md, codex-config.toml)
 ├── src/                         # serveur MCP TypeScript (tools/, resources/, prompts/)
 ├── tests/                       # vitest + mock bridge (fixtures partagées)
 ├── scripts/                     # fake-bridge, smoke-bridge, fixtures JSON
+├── LICENSE
 ├── README.md
 └── package.json  tsconfig.json  vitest.config.ts
 ```
