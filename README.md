@@ -53,7 +53,7 @@ uniquement par des modules C# chargés dans le terminal. D'où deux composants :
 | Composant | Version | Usage |
 |---|---|---|
 | Node.js | ≥ 20 | serveur MCP |
-| .NET SDK | ≥ 8 | bridge C# (`bridge/QuantowerMcpBridge`) |
+| .NET SDK | ≥ 8 (10 pour les Quantower récents) | bridge C# (`bridge/QuantowerMcpBridge`) |
 | Quantower | récente (Windows) | bridge réel ; l'extension VS **Quantower Algo** est gratuite |
 | Windows 10/11 | — | Quantower et le bridge sont Windows-only |
 
@@ -66,7 +66,42 @@ développer le serveur MCP et les tests.
 
 Seul **Node.js ≥ 20** est requis pour le serveur MCP. Deux chemins selon votre usage :
 
-### Chemin A — clone local (recommandé)
+### Installation en une commande (Windows, recommandé)
+
+Si vous êtes sous Windows et voulez le **bridge Quantower** *et* le **serveur MCP** configurés
+sans rien faire à la main :
+
+```powershell
+git clone https://github.com/mattdef/quantower-mcp.git
+cd quantower-mcp
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+(ou, depuis une invite `cmd` : `install.cmd`)
+
+Le script **PowerShell 5.1+**, idempotent et non destructif :
+
+1. vérifie les prérequis (Node.js ≥ 20, .NET SDK ≥ 8, git) ;
+2. détecte votre installation Quantower (`C:\Quantower`, `%ProgramFiles%\Quantower`, `%ProgramFiles(x86)%\Quantower`) ;
+3. compile le bridge avec le SDK détecté et déploie le module dans `bin\plug-ins\QuantowerMcpBridge\` ;
+4. compile le serveur MCP (`npm install`, `npm run build`) ;
+5. configure les clients détectés (OpenCode, Claude Code, Codex, Claude Desktop) — **lecture seule**
+   (`QUANTOWER_TRADING_ENABLED=false`) et **sans aucun secret** (le serveur relit
+   `%LOCALAPPDATA%\quantower-mcp\bridge-token`) ; chaque fichier modifié est sauvegardé en
+   `.bak-<horodatage>` ;
+6. vérifie `/health`, lance le smoke test (lecture) et affiche les réservations
+   `netsh http add urlacl` nécessaires ;
+7. récapitule ce qui a été fait et ce qui reste manuel : **redémarrage de Quantower** (le script ne
+   ferme jamais Quantower) puis redémarrage des clients MCP.
+
+Options : `-DryRun` (simulation complète, aucune écriture), `-Demo` (démonstration sans Quantower,
+bridge factice), `-SkipClients` (ne pas toucher aux configs clients), `-SetUrlAcl` (exécuter les
+`netsh http add urlacl` — console administrateur), `-Port 8765` (port local par défaut).
+
+> Les **chemins A et B** ci-dessous restent la référence pour un usage manuel, en CI ou pour une
+> configuration personnalisée.
+
+### Chemin A — clone local (usage manuel ou CI)
 
 ```bash
 git clone https://github.com/mattdef/quantower-mcp.git
@@ -145,10 +180,17 @@ La procédure complète (build avec le SDK Quantower, déploiement, checklist **
 **[`bridge/README.md`](bridge/README.md)**. Résumé :
 
 1. Compiler le bridge :
-   `dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj -p:QuantowerSdkDir="C:\Program Files\Quantower\Trading Platform"`
-2. Charger le module dans Quantower (extension VS « Quantower Algo » ou dossier de modules — **à valider en Phase 0**).
+   `dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj -c Release -p:QuantowerSdkDir="C:\Quantower\TradingPlatform\v1.146.18\bin"`
+   (en mode SDK, le projet cible `net10.0` et produit `QuantowerMcpBridge.dll`).
+2. Copier `QuantowerMcpBridge.dll` dans `<QuantowerSdkDir>\plug-ins\QuantowerMcpBridge\`, **redémarrer
+   Quantower** puis ouvrir **une fois** le panneau « Quantower MCP Bridge » (*Ajouter un panneau*) :
+   son ouverture démarre le bridge, sa fermeture l'arrête (classe de base `Plugin` — fait vérifié,
+   voir [`bridge/README.md`](bridge/README.md) §4).
 3. Vérifier que le bridge répond : `node scripts/smoke-bridge.mjs --url http://127.0.0.1:8765 --token <token>` — substituez `<token>` par la valeur du fichier `%LOCALAPPDATA%\quantower-mcp\bridge-token` (`smoke-bridge.mjs` ne relit pas ce fichier) ; sous PowerShell : `--token (Get-Content "$env:LOCALAPPDATA\quantower-mcp\bridge-token")`.
 4. Côté config MCP, rien à copier : le serveur MCP relit automatiquement `%LOCALAPPDATA%\quantower-mcp\bridge-token` (voir [Dépannage](#dépannage) en cas de `[BRIDGE_UNAUTHORIZED]`).
+
+> Tout ce qui précède est automatisé par `install.ps1` (voir
+> [Installation en une commande](#installation-en-une-commande-windows-recommandé)).
 
 ---
 
@@ -390,14 +432,14 @@ répercutée dans le bridge C#, `src/bridge-types.ts` et les fixtures.
 
 | Symptôme | Cause probable | Action |
 |---|---|---|
-| `[BRIDGE_UNAVAILABLE]` | Quantower fermé, module non chargé, mauvais port | Lancez Quantower avec le bridge, vérifiez `QUANTOWER_BRIDGE_URL` et `scripts/smoke-bridge.mjs` (Chemin A). |
+| `[BRIDGE_UNAVAILABLE]` | Quantower fermé, module non chargé, mauvais port | Lancez Quantower avec le bridge, vérifiez `QUANTOWER_BRIDGE_URL` et `scripts/smoke-bridge.mjs` (Chemin A). Après une installation : le module n'est chargé qu'au **démarrage** de Quantower — redémarrez-le (jamais automatisé), vérifiez `<QuantowerSdkDir>\plug-ins\QuantowerMcpBridge\QuantowerMcpBridge.dll`, puis relancez `install.ps1 -SkipClients` pour re-tester `/health`. |
 | `[BRIDGE_UNAUTHORIZED]` | Token absent/différent | Par défaut rien à configurer : le serveur relit `%LOCALAPPDATA%\quantower-mcp\bridge-token`. Si le bridge écrit ailleurs, pointez `QUANTOWER_BRIDGE_TOKEN_FILE` dessus (préférable à `QUANTOWER_BRIDGE_TOKEN`, un secret en clair dans la config). |
 | `[NOT_FOUND]` | `connectionId`/`symbolId`/`orderId` inconnu | Utilisez `quantower_list_connections` et `quantower_search_symbols`. |
 | `[TIMEOUT]` | Historique trop volumineux | Réduisez `limit` ou augmentez `QUANTOWER_BRIDGE_TIMEOUT_MS`. |
 | `[INVALID_STATE]` | Ordre déjà annulé/terminé | Rechargez l'état avec `quantower_get_orders`. |
 | `[TRADING_DISABLED]` | Mode read_only (MCP) ou écriture désactivée côté bridge | MCP : `QUANTOWER_TRADING_ENABLED=true` puis redémarrez le serveur MCP ; bridge : `QUANTOWER_BRIDGE_TRADING_ENABLED=true` (défaut `false`) puis relancez le bridge. |
 | `[LIMIT_EXCEEDED]` | Plafond dépassé | Réduisez la taille ou ajustez les plafonds. |
-| Erreur d'accès refusé au démarrage du bridge | Réservation URL HTTP.SYS | Une réservation par préfixe : `netsh http add urlacl url=http://localhost:8765/ user=%USERNAME%`, puis idem pour `http://127.0.0.1:8765/` et `http://[::1]:8765/` (voir `bridge/README.md`). |
+| Erreur d'accès refusé au démarrage du bridge | Réservation URL HTTP.SYS | Une réservation par préfixe : `netsh http add urlacl url=http://localhost:8765/ user=%USERNAME%`, puis idem pour `http://127.0.0.1:8765/` et `http://[::1]:8765/` (voir `bridge/README.md`). `install.ps1` détecte les réservations manquantes et affiche ces commandes exactes (`-SetUrlAcl` pour les exécuter depuis une console administrateur). |
 | `npx` introuvable côté client (Windows) | Le client n'exécute pas `npx.cmd` | Utilisez `cmd /c npx` ou `npx.cmd` dans la recette, ou restez sur le Chemin A (clone local, sans `npx`). |
 | `npm error code EALLOWGIT` (recette `npx -y github:…` sur npm ≥ 12) | npm ≥ 12 refuse les sources git par défaut (`allow-git=none`) et n'exécute pas le `prepare` (build) d'une source git sans approbation des scripts | Chemin A (clone local) : fiable quel que soit npm. Sinon opt-in via un `.npmrc` **utilisateur** (une recette `npx` n'a pas de `package.json` de projet) : `allow-git` (`all`/`root`, pas de ciblage par dépôt) + `allow-scripts` ; la préparation d'une source git peut néanmoins rester bloquée (`EALLOWSCRIPTS`, npm/cli#9783). |
 | `npx` échoue sans message (binaire introuvable) | Politique npm `allow-scripts` : le script `prepare` (build) n'est pas exécuté, `dist/` reste vide | Chemin A : `npm install`, `npm run build`, puis `node dist/server.js` (ou `npm start`). |

@@ -38,7 +38,9 @@ namespace QuantowerMcpBridge
                 StartedAtUtc = DateTime.UtcNow,
                 UptimeSeconds = 0,
                 TradingEnabled = true,
-                ConnectionCount = core.Connections.Connected.Count,
+                // CORRECTION-SIGNATURE (Phase 0) : Connections.Connected est un tableau/IEnumerable
+                // (Count est ici l'extension LINQ, pas une propriété).
+                ConnectionCount = core.Connections.Connected.Count(),
             };
             return Task.FromResult(health);
         }
@@ -50,7 +52,8 @@ namespace QuantowerMcpBridge
                 {
                     ConnectionId = ToId(connection.Id),
                     Name = SafeString(connection.Name),
-                    Status = SafeString(connection.Status),
+                    // CORRECTION-SIGNATURE (Phase 0) : Connection expose State (ConnectionState), pas Status.
+                    Status = SafeString(connection.State),
                     // TODO(Phase 0) : exposer le type de connexion si disponible (ConnectionType).
                     Type = null,
                 })
@@ -70,7 +73,8 @@ namespace QuantowerMcpBridge
                     Balance = ToDouble(account.Balance),
                     // TODO(Phase 0) : Equity / NetPnl / BuyingPower selon les propriétés réelles d'Account.
                     Equity = null,
-                    Currency = SafeString(account.Currency),
+                    // CORRECTION-SIGNATURE (Phase 0) : Account expose AccountCurrency (Asset) ; Currency n'existe pas.
+                    Currency = SafeString(account.AccountCurrency?.IsoCode),
                     NetPnl = null,
                     BuyingPower = null,
                 })
@@ -103,8 +107,10 @@ namespace QuantowerMcpBridge
                     LotStep = ToDouble(symbol.LotStep),
                     MinLot = ToDouble(symbol.MinLot),
                     MaxLot = ToDouble(symbol.MaxLot),
-                    BaseAsset = SafeString(symbol.BaseAsset),
-                    QuoteAsset = SafeString(symbol.QuoteAsset),
+                    // CORRECTION-SIGNATURE (Phase 0) : Symbol expose Product / QuotingCurrency (Asset) ;
+                    // BaseAsset / QuoteAsset n'existent pas.
+                    BaseAsset = SafeString(symbol.Product?.Name),
+                    QuoteAsset = SafeString(symbol.QuotingCurrency?.Name),
                 })
                 .ToList();
             return Task.FromResult<IReadOnlyList<SymbolDto>>(symbols);
@@ -253,7 +259,12 @@ namespace QuantowerMcpBridge
 
             // TODO(Phase 0) : confirmer la signature de Core.GetOrdersHistory(fromTime, toTime)
             // et le type retourné (OrderHistory).
-            var history = CoreInstance.GetOrdersHistory(from, to);
+            // CORRECTION-SIGNATURE (Phase 0) : GetOrdersHistory exige OrdersHistoryRequestParameters (From/To).
+            var history = CoreInstance.GetOrdersHistory(new OrdersHistoryRequestParameters
+            {
+                From = from,
+                To = to,
+            });
             var orders = history
                 .Where(order =>
                     Matches(ToId(order.ConnectionId), connectionId) &&
@@ -270,7 +281,13 @@ namespace QuantowerMcpBridge
             int limit,
             System.Threading.CancellationToken cancellationToken)
         {
-            var trades = CoreInstance.Trades
+            // CORRECTION-SIGNATURE (Phase 0) : Core.Trades n'existe pas ; l'API documentée est
+            // Core.GetTrades(TradesHistoryRequestParameters) — fenêtre récente par défaut.
+            var trades = CoreInstance.GetTrades(new TradesHistoryRequestParameters
+                {
+                    From = DateTime.UtcNow.AddDays(-7),
+                    To = DateTime.UtcNow,
+                })
                 .Where(trade =>
                     Matches(ToId(trade.ConnectionId), connectionId) &&
                     Matches(ToId(trade.Account?.Id), accountId))
@@ -322,9 +339,12 @@ namespace QuantowerMcpBridge
             var order = FindOrder(orderId);
             // TODO(Phase 0) : confirmer le type/candidat des paramètres de modification
             // (ModifyOrderRequestParameters ? overload de Core.ModifyOrder ?).
-            var parameters = new ModifyOrderRequestParameters
+            // CORRECTION-SIGNATURE (Phase 0) : ModifyOrderRequestParameters n'a pas de ctor sans
+            // paramètre — il faut fournir l'ordre — et Core.ModifyOrder prend ce seul objet.
+            var parameters = new ModifyOrderRequestParameters(order)
             {
-                Quantity = request.Quantity ?? Math.Abs(ToDouble(order.Quantity) ?? 0),
+                // CORRECTION-SIGNATURE (Phase 0) : Order n'expose pas Quantity — TotalQuantity le remplace.
+                Quantity = request.Quantity ?? Math.Abs(ToDouble(order.TotalQuantity) ?? 0),
                 Price = request.Price ?? ToDouble(order.Price) ?? 0,
                 TriggerPrice = request.TriggerPrice ?? ToDouble(order.TriggerPrice) ?? 0,
             };
@@ -333,14 +353,16 @@ namespace QuantowerMcpBridge
                 parameters.TimeInForce = MapTimeInForce(request.TimeInForce);
             }
 
-            var result = CoreInstance.ModifyOrder(order, parameters);
+            var result = CoreInstance.ModifyOrder(parameters);
             return Task.FromResult(MapTradingResult(result, orderId));
         }
 
         public Task<TradingResultDto> CancelOrderAsync(string orderId, System.Threading.CancellationToken cancellationToken)
         {
             var order = FindOrder(orderId);
-            var result = CoreInstance.CancelOrder(order);
+            // CORRECTION-SIGNATURE (Phase 0) : l'overload CancelOrder(Order, string) est obsolète
+            // (CS0618) — passer par CancelOrder(IOrder).
+            var result = CoreInstance.CancelOrder((IOrder)order);
             return Task.FromResult(MapTradingResult(result, orderId));
         }
 
@@ -412,12 +434,15 @@ namespace QuantowerMcpBridge
                 Side = MapSide(order.Side),
                 OrderType = SafeString(order.OrderTypeId).ToLowerInvariant().Replace(" ", "_"),
                 Status = SafeString(order.Status).ToLowerInvariant(),
-                Quantity = Math.Abs(ToDouble(order.TotalQuantity) ?? ToDouble(order.Quantity) ?? 0),
+                // CORRECTION-SIGNATURE (Phase 0) : Order n'expose pas Quantity — TotalQuantity le remplace.
+                Quantity = Math.Abs(ToDouble(order.TotalQuantity) ?? 0),
                 FilledQuantity = ToDouble(order.FilledQuantity),
                 Price = ToDouble(order.Price),
                 TriggerPrice = ToDouble(order.TriggerPrice),
                 TimeInForce = SafeString(order.TimeInForce),
-                CreatedAtUtc = ToNullableUtc(order.CreationTime),
+                // CORRECTION-SIGNATURE (Phase 0) : Order n'expose pas CreationTime/Remarks ;
+                // LastUpdateTime est le membre documenté le plus proche et Comment le champ libre.
+                CreatedAtUtc = ToNullableUtc(order.LastUpdateTime),
                 Comment = SafeString(order.Comment),
             };
         }

@@ -3,21 +3,34 @@
   <!--
     Bridge Quantower MCP.
 
-    Compilation isolée (sans Quantower installé) :
+    Compilation isolée (sans Quantower installé — host standalone « stub », Exe net8.0-windows) :
       dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj
+      puis lancement du host standalone : options port/token/latency/trading (voir Program.cs).
 
-    Compilation avec le vrai SDK Quantower (active le symbole QUANTOWER_SDK et
-    l'implémentation réelle QuantowerCoreGateway) :
-      dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj -p:QuantowerSdkDir="C:\Program Files\Quantower\Trading Platform"
+    Compilation du vrai module Quantower (active le symbole QUANTOWER_SDK, référence le SDK,
+    cible net10.0 — les assemblies Quantower v1.146.18 ciblent .NET 10 — et produit une Library
+    à déployer dans bin\plug-ins\QuantowerMcpBridge\) :
+      dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj -c Release -p:QuantowerSdkDir="C:\Quantower\TradingPlatform\v1.146.18\bin"
 
-    Si la version installée de Quantower cible .NET Framework, préciser aussi :
-      -p:QuantowerTargetFramework=net48
+    Si une version installée de Quantower cible une autre version de .NET, préciser aussi :
+      -p:QuantowerTargetFramework=net8.0 (ou net48 pour un SDK .NET Framework)
+
+    Déploiement (voir bridge/README.md §3) : copier QuantowerMcpBridge.dll (et ses éventuelles
+    dépendances privées) vers <QuantowerSdkDir>\plug-ins\QuantowerMcpBridge\ puis redémarrer Quantower.
   -->
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- Mode stub : Exe (host standalone Program.cs) ; mode SDK Quantower : Library (module plugin). -->
+    <OutputType Condition="'$(QuantowerSdkDir)' == ''">Exe</OutputType>
+    <OutputType Condition="'$(QuantowerSdkDir)' != ''">Library</OutputType>
+
+    <!-- Mode stub : net8.0-windows (inchangé) ; mode SDK : net10.0 (les assemblies Quantower
+         v1.146.18 ciblent .NET 10 / System.Runtime 10.0.0.0).
+         QuantowerTargetFramework reste prioritaire pour les autres SDK (ex. net8.0, net48). -->
     <TargetFramework Condition="'$(QuantowerTargetFramework)' != ''">$(QuantowerTargetFramework)</TargetFramework>
-    <TargetFramework Condition="'$(QuantowerTargetFramework)' == ''">net8.0-windows</TargetFramework>
+    <TargetFramework Condition="'$(QuantowerTargetFramework)' == '' and '$(QuantowerSdkDir)' != ''">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(QuantowerTargetFramework)' == '' and '$(QuantowerSdkDir)' == ''">net8.0-windows</TargetFramework>
+
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -35,6 +48,10 @@
   <ItemGroup Condition="'$(QuantowerSdkDir)' != ''">
     <Reference Include="TradingPlatform.BusinessLayer">
       <HintPath>$(QuantowerSdkDir)\TradingPlatform.BusinessLayer.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="TradingPlatform.PresentationLayer.Plugins">
+      <HintPath>$(QuantowerSdkDir)\TradingPlatform.PresentationLayer.Plugins.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

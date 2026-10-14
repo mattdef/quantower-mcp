@@ -19,7 +19,8 @@ Points clés : bind **loopback uniquement**, **token Bearer** généré à la se
 ## 1. Prérequis
 
 - Windows 10/11, Quantower installé.
-- .NET SDK 8 (ou plus récent) pour compiler le bridge.
+- .NET SDK 8 (ou plus récent) pour compiler le bridge en mode stub ; pour le mode SDK réel,
+  installez le SDK .NET correspondant à votre version de Quantower (ex. v1.146.18 → .NET 10).
 - **Compilation isolée uniquement** : aucun prérequis supplémentaire (mode stub).
 
 ---
@@ -57,20 +58,37 @@ QUANTOWER_BRIDGE_URL=http://127.0.0.1:8765 QUANTOWER_BRIDGE_TOKEN=dev-token node
 
 ## 3. Compiler avec le vrai SDK Quantower
 
-Le fichier `QuantowerCoreGateway.cs` (accès réel à `Core.Instance`) n'est compilé que si la propriété
-MSBuild `QuantowerSdkDir` est fournie :
+Les fichiers `QuantowerCoreGateway.cs` (accès réel à `Core.Instance`) et `BridgePlugin.cs` (module
+Quantower, classe de base `Plugin`) ne sont compilés que si la propriété MSBuild `QuantowerSdkDir`
+est fournie :
 
-```bash
-dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj ^
-  -p:QuantowerSdkDir="C:\Program Files\Quantower\Trading Platform"
+```powershell
+dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj -c Release -p:QuantowerSdkDir="C:\Quantower\TradingPlatform\v1.146.18\bin"
 ```
 
-- `QuantowerSdkDir` doit contenir `TradingPlatform.BusinessLayer.dll`.
-- Si la version installée de Quantower cible .NET Framework, ajouter
-  `-p:QuantowerTargetFramework=net48` (le projet cible `net8.0-windows` par défaut et référence
-  `System.Text.Json` automatiquement pour `net4x`).
-- Une fois `QuantowerSdkDir` fourni, le symbole `QUANTOWER_SDK` est défini : `BridgePlugin` devient le
-  véritable module Quantower et l'implémentation réelle du gateway est compilée.
+- `QuantowerSdkDir` doit contenir `TradingPlatform.BusinessLayer.dll` **et**
+  `TradingPlatform.PresentationLayer.Plugins.dll` (assemblies `net10.0` du SDK v1.146.18).
+- En mode SDK, le projet cible automatiquement **`net10.0`** (les assemblies v1.146.18 utilisent
+  `System.Runtime 10.0.0.0`) et produit une **Library** (`QuantowerMcpBridge.dll`) ; le mode stub
+  isolé reste un `Exe` `net8.0-windows`.
+- SDK ciblant une autre version de .NET : préciser `-p:QuantowerTargetFramework=net8.0` (ou
+  `net48` pour .NET Framework — référence `System.Text.Json` automatique).
+
+### Déploiement (dossier `plug-ins`)
+
+```powershell
+$sdk = "C:\Quantower\TradingPlatform\v1.146.18\bin"
+New-Item -ItemType Directory -Force "$sdk\plug-ins\QuantowerMcpBridge" | Out-Null
+Copy-Item bridge\QuantowerMcpBridge\bin\Release\net10.0\QuantowerMcpBridge.dll "$sdk\plug-ins\QuantowerMcpBridge\" -Force
+```
+
+- Le dossier doit être nommé comme `PluginInfo.Name` / `AssemblyName` : `QuantowerMcpBridge`.
+- **Redémarrez Quantower**, puis ouvrez **une fois** le panneau « Quantower MCP Bridge »
+  (bouton *Ajouter un panneau*) : son ouverture appelle `Initialize()` et démarre le bridge HTTP ;
+  le fermer appelle `Dispose()` et l'arrête (le panneau n'a pas d'interface — `BrowserUsageType.None`).
+  Laissez-le ouvert dans votre espace de travail.
+- Fermez Quantower avant la copie si le fichier est verrouillé ; `install.ps1` (racine du dépôt)
+  automatise la compilation et cette copie (et ne ferme jamais Quantower lui-même).
 
 ---
 
@@ -78,14 +96,15 @@ dotnet build bridge/QuantowerMcpBridge/QuantowerMcpBridge.csproj ^
 
 Avant d'aller plus loin dans l'accès réel, valider les 4 incertitudes du plan §10 :
 
-- [ ] **(a) Déploiement/chargement du module** : créer/déployer le module via l'extension Visual Studio
-      **Quantower Algo** (option *« Allow connection from Visual Studio »*), ou le dossier de modules.
-      Confirmer la classe de base exacte d'un « plugin » dans `github.com/Quantower/Examples` (dossier `Plugins`)
-      et ajuster `BridgePlugin.cs` si `CustomPlugin` n'est pas la bonne classe.
+- [x] **(a) Déploiement/chargement du module — résolu** : la classe de base d'un module Quantower est
+      `Plugin` (namespace `TradingPlatform.PresentationLayer.Plugins`), avec
+      `public override void Initialize()` et `static PluginInfo GetInfo()`
+      (faits vérifiés sur les exemples officiels `LinkingExamplePlugin` / `BrowserBasedPlugin`) ;
+      déploiement par copie de `QuantowerMcpBridge.dll` dans `bin\plug-ins\QuantowerMcpBridge\`.
 - [ ] **(b) Signatures réelles** : `Symbol.GetHistory(...)` / `HistoricalData`, `Core.GetOrdersHistory(...)`,
       `PlaceOrderRequestParameters`, `ModifyOrder` (type des paramètres), `SlTpHolder.CreateSL/CreateTP`.
       Toutes les zones `TODO(Phase 0)` de `QuantowerCoreGateway.cs` sont concernées.
-- [ ] **(c) Thread UI** : confirmer que `OnInitialize()` s'exécute sur le thread UI et que le
+- [ ] **(c) Thread UI** : confirmer que `Initialize()` s'exécute sur le thread UI et que le
       `SynchronizationContext` est bien pompé par la plateforme (sinon basculer sur `Application.Current.Dispatcher`
       ou l'API de dispatch Quantower).
 - [ ] **(d) DepthOfMarket** : confirmer la structure et la disponibilité du Level 2 selon la licence ;
